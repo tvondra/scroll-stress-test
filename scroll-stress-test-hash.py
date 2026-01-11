@@ -198,6 +198,10 @@ def test_worker(wid):
 		# query random combinations of column values
 		for loop in range(0, LOOPS):
 
+			# there might not be enough values
+			if loop >= len(values):
+				break
+
 			param = values[loop]
 
 			total_cnt = count_rows(wid, did, conn_master, param)
