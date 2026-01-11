@@ -1,0 +1,246 @@
+#!/usr/bin/env python3
+#
+# randomized stress test of scrollable cursor with hash index scans
+#
+# 1. picks random parameters for a run (seed, fuzz, fillfactors, ios, ...)
+# 2. generates a table (1-10 columns) with pseudo-random data (seed+fuzz)
+# 3. creates a b-tree index on the table
+# 4. declares a scrollable cursor with a random condition (random value)
+# 5. scrolls further and further in the cursor and back to start
+# 6. after each fetch compares results from master and patched connection
+#
+
+import io
+import logging
+from multiprocessing import Process
+import os
+import psycopg2
+import psycopg2.extras
+import random
+import time
+
+USER=os.getlogin()
+PORT_MASTER=5001
+PORT_PREFETCH=5002
+
+ROWS=100000
+LOOPS=1000
+STEP=100
+
+# primes used to generate 'random' data
+PRIMES = [19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79,
+		  83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149,
+		  151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211,
+		  223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277,
+		  281, 283, 293, 307, 311, 313, 317, 331, 337, 347, 349, 353,
+		  359, 367, 373, 379, 383, 389, 397, 401, 409, 419, 421, 431,
+		  433, 439, 443, 449, 457, 461, 463, 467, 479, 487, 491, 499,
+		  503, 509, 521, 523, 541]
+
+def run_sql(wid, did, cur, sql):
+	'''
+	log SQL and execute it
+	'''
+
+	logger = logging.getLogger(f'worker-{wid}-{did}')
+
+	logger.info(f'SQL: {sql};')
+	cur.execute(sql)
+
+def create_table(wid, did, conn, fillfactor_index, fillfactor_table):
+	'''
+	create table and index
+	'''
+
+	with conn.cursor() as c:
+		run_sql(wid, did, c, f'drop table if exists t_{wid}')
+		run_sql(wid, did, c, f'create table t_{wid} (a bigint) with (fillfactor = {fillfactor_table})')
+		run_sql(wid, did, c, f'create index on t_{wid} using hash (a) with (fillfactor = {fillfactor_index})')
+		run_sql(wid, did, c, 'commit')
+
+def generate_data(wid, did, conn, rows, seed, fuzz):
+	'''
+	generate random-looking data (the primes are picked at random, but
+	after that the query itself is deterministic)
+	'''
+
+	col = '(i / ' + str(random.choice(PRIMES)) + ')'
+
+	with conn.cursor() as c:
+		run_sql(wid, did, c, f'insert into t_{wid} select {col} from generate_series(1, {rows}) s(i) order by i + mod(i::bigint * {seed}, {fuzz}), md5(i::text)')
+		run_sql(wid, did, c, 'commit')
+		run_sql(wid, did, c, f'vacuum freeze t_{wid}')
+		run_sql(wid, did, c, f'analyze t_{wid}')
+
+def copy_data(wid, did, conn_src, conn_dst):
+	'''
+	copy data from table on src connection to dst connection
+	'''
+
+	f = io.StringIO()
+
+	with conn_src.cursor() as src:
+		src.copy_to(f, f't_{wid}')
+
+	#print(len(f))
+	f.seek(0)
+
+	with conn_dst.cursor() as dst:
+		dst.copy_from(f, f't_{wid}')
+
+def get_distinct_values(wid, did, cur):
+	'''
+	determine distinct values for each column
+	'''
+	cur.execute(f'select distinct a from t_{wid}')
+	return [v[0] for v in cur.fetchall()]
+
+def count_rows(wid, did, conn, param):
+	'''
+	count all rows returned by the query
+	'''
+	with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as c:
+		c.execute(f'select count(*) as cnt from t_{wid} where a = {param}')
+		return c.fetchone()['cnt']
+
+
+def declare_cursor(wid, did, conn, param):
+	'''
+	declare cursor selecting data for a particular value
+	'''
+
+	logger = logging.getLogger(f'worker-{wid}-{did}')
+
+	c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+	run_sql(wid, did, c, 'begin')
+	run_sql(wid, did, c, 'set enable_seqscan = off')
+	run_sql(wid, did, c, 'set enable_bitmapscan = off')
+	run_sql(wid, did, c, 'set cursor_tuple_fraction = 1.0')
+
+	conds = []		# WHERE conditions
+
+	# print explain of the constructed query
+	c.execute(f'explain select * from t_{wid} where a = {param}')
+	for r in c.fetchall():
+		logger.info(r['QUERY PLAN'])
+
+	# actually declare the cursor
+	run_sql(wid, did, c, f'declare c_{wid} scroll cursor for select * from t_{wid} where a = {param}')
+
+	return c
+
+
+def close_cursor(wid, did, conn):
+	'''
+	close the declared cursor
+	'''
+
+	with conn.cursor() as c:
+		run_sql(wid, did, c, f'CLOSE c_{wid}')
+
+
+def fetch_row(wid, did, conn, cur, direction):
+	'''
+	fetch a row from the data
+	'''
+
+	# evict data from shared buffers, to force prefetching / look-ahead
+	run_sql(wid, did, cur, 'select pg_buffercache_evict_all()')
+
+	run_sql(wid, did, cur, f'fetch {direction} from c_{wid}')
+	return cur.fetchone()
+
+
+def test_worker(wid):
+
+	conn_master = psycopg2.connect(f'host=localhost port={PORT_MASTER} user={USER} dbname=test')
+	conn_prefetch = psycopg2.connect(f'host=localhost port={PORT_PREFETCH} user={USER} dbname=test')
+
+	did = 0
+
+	while True:
+
+		did += 1
+
+		logger = logging.getLogger(f'worker-{wid}-{did}')
+
+		seed = random.randint(1, 1000000)
+		fuzz = random.randint(0, int(ROWS / 100))
+		fill_table = random.randint(10, 100)
+		fill_index = random.randint(10, 100)
+
+		logger.info(f'PARAMETERS: did {did} seed {seed} fuzz {fuzz} table fillfactor {fill_table} index fillfactor {fill_index}')
+
+		logger.info('creating table(s)')
+		create_table(wid, did, conn_master,   fill_table, fill_index)
+		create_table(wid, did, conn_prefetch, fill_table, fill_index)
+
+		logger.info('generating data (master)')
+		generate_data(wid, did, conn_master, ROWS, seed, fuzz)
+
+		logger.info('copying data (prefetch)')
+		copy_data(wid, did, conn_master, conn_prefetch)
+
+		logger.info('determining distinct values for the column')
+		values = get_distinct_values(wid, did, conn_master.cursor())
+
+		l = len(values)
+		logger.info(f'column distinct values {l}')
+
+		# shuffle values
+		random.shuffle(values)
+
+		# query random combinations of column values
+		for loop in range(0, LOOPS):
+
+			param = values[loop]
+
+			total_cnt = count_rows(wid, did, conn_master, param)
+
+			cur_master = declare_cursor(wid, did, conn_master, param)
+			cur_prefetch = declare_cursor(wid, did, conn_prefetch, param)
+
+			logger.info(f'total rows {total_cnt}')
+
+			# fetch more and more rows, up to the whole data set (but that's unlikely)
+			for count in range(1, (total_cnt + 2)):
+
+				logger.info(f'scrolling to {count}')
+
+				# fetch row by row in lockstep from both connections (forward)
+				logger.info(f'scroll forward')
+				for r in range(0, count):
+
+					row_master = fetch_row(wid, did, conn_master, cur_master, 'forward')
+					row_prefetch = fetch_row(wid, did, conn_prefetch, cur_prefetch, 'forward')
+
+					if row_master != row_prefetch:
+						logger.info(f'ERROR: row mismatch master {row_master} != prefetch {row_prefetch}')
+						exit(1)
+
+				# fetch row by row in lockstep from both connections (backward)
+				logger.info(f'scroll backward')
+				for r in range(0, count):
+
+					row_master = fetch_row(wid, did, conn_master, cur_master, 'backward')
+					row_prefetch = fetch_row(wid, did, conn_prefetch, cur_prefetch, 'backward')
+
+					if row_master != row_prefetch:
+						logger.info(f'ERROR: row mismatch master {row_master} != prefetch {row_prefetch}')
+						exit(1)
+
+			close_cursor(wid, did, conn_master)
+			close_cursor(wid, did, conn_prefetch)
+
+		logger.info("SUCCESS")
+
+
+if __name__ == '__main__':
+
+	FORMAT = '%(asctime)s\t%(levelname)s\t%(module)s\t%(name)s\t%(message)s'
+	logging.basicConfig(level=logging.INFO, format=FORMAT)
+
+	workers = [Process(target=test_worker, args=(i,)) for i in range(0,os.cpu_count())]
+	[w.start() for w in workers]
+	[w.join() for w in workers]
