@@ -145,6 +145,7 @@ def close_cursor(wid, did, conn):
 
 	with conn.cursor() as c:
 		run_sql(wid, did, c, f'CLOSE c_{wid}')
+		run_sql(wid, did, c, 'rollback')
 
 
 def fetch_data(wid, did, conn, cur, direction, count):
