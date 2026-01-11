@@ -12,6 +12,9 @@ echo 'port = 5002' >> data-patched/postgresql.conf
 echo 'restart_after_crash = on' >> data-master/postgresql.conf
 echo 'restart_after_crash = on' >> data-patched/postgresql.conf
 
+echo 'io_workers = 32' >> data-master/postgresql.conf
+echo 'io_workers = 32' >> data-patched/postgresql.conf
+
 ~/builds/master/bin/pg_ctl -D data-master -l pg-master.log start
 ~/builds/patched/bin/pg_ctl -D data-patched -l pg-patched.log start
 
