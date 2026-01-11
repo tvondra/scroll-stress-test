@@ -265,8 +265,8 @@ def test_worker(wid):
 				scan_pos = 0
 				loops += 1
 
-		close_cursor(conn_master, wid)
-		close_cursor(conn_prefetch, wid)
+		close_cursor(wid, did, conn_master)
+		close_cursor(wid, did, conn_prefetch)
 
 		logger.info("SUCCESS")
 
