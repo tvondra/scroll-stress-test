@@ -25,7 +25,7 @@ PORT_PREFETCH=5002	# connection to patched instance
 
 ROWS=100000
 LOOPS=1000
-STEP=100
+STEP=100		# largest allowed step
 
 # primes used to generate 'random' data
 PRIMES = [19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79,
@@ -140,7 +140,7 @@ def close_cursor(wid, did, conn):
 		run_sql(wid, did, c, f'CLOSE c_{wid}')
 
 
-def fetch_row(wid, did, conn, cur, direction):
+def fetch_data(wid, did, conn, cur, direction, cnt):
 	'''
 	fetch a row from the data
 	'''
@@ -148,8 +148,8 @@ def fetch_row(wid, did, conn, cur, direction):
 	# evict data from shared buffers, to force prefetching / look-ahead
 	run_sql(wid, did, cur, 'select pg_buffercache_evict_all()')
 
-	run_sql(wid, did, cur, f'fetch {direction} from c_{wid}')
-	return cur.fetchone()
+	run_sql(wid, did, cur, f'fetch {direction} {cnt} from c_{wid}')
+	return cur.fetchall()
 
 
 def test_worker(wid):
@@ -170,7 +170,10 @@ def test_worker(wid):
 		fill_table = random.randint(10, 100)
 		fill_index = random.randint(10, 100)
 
-		logger.info(f'PARAMETERS: did {did} seed {seed} fuzz {fuzz} table fillfactor {fill_table} index fillfactor {fill_index}')
+		# step affects how often we evict data (which may affect prefetching)
+		step = random.randint(1, STEP)
+
+		logger.info(f'PARAMETERS: did {did} seed {seed} fuzz {fuzz} table fillfactor {fill_table} index fillfactor {fill_index} step {step}')
 
 		logger.info('creating table(s)')
 		create_table(wid, did, conn_master,   fill_table, fill_index)
@@ -210,24 +213,32 @@ def test_worker(wid):
 
 				# fetch row by row in lockstep from both connections (forward)
 				logger.info(f'scroll forward')
-				for r in range(0, count):
+				steps = count
+				while (steps > 0):
 
-					row_master = fetch_row(wid, did, conn_master, cur_master, 'forward')
-					row_prefetch = fetch_row(wid, did, conn_prefetch, cur_prefetch, 'forward')
+					cnt = min(step, steps)
+					steps -= cnt
 
-					if row_master != row_prefetch:
-						logger.info(f'ERROR: row mismatch master {row_master} != prefetch {row_prefetch}')
+					data_master = fetch_data(wid, did, conn_master, cur_master, 'forward', cnt)
+					data_prefetch = fetch_data(wid, did, conn_prefetch, cur_prefetch, 'forward', cnt)
+
+					if data_master != data_prefetch:
+						logger.info(f'ERROR: row mismatch master {data_master} != prefetch {data_prefetch}')
 						exit(1)
 
 				# fetch row by row in lockstep from both connections (backward)
 				logger.info(f'scroll backward')
-				for r in range(0, count):
+				steps = count
+				while (steps > 0):
 
-					row_master = fetch_row(wid, did, conn_master, cur_master, 'backward')
-					row_prefetch = fetch_row(wid, did, conn_prefetch, cur_prefetch, 'backward')
+					cnt = min(step, steps)
+					steps -= cnt
 
-					if row_master != row_prefetch:
-						logger.info(f'ERROR: row mismatch master {row_master} != prefetch {row_prefetch}')
+					data_master = fetch_data(wid, did, conn_master, cur_master, 'backward', cnt)
+					data_prefetch = fetch_data(wid, did, conn_prefetch, cur_prefetch, 'backward', cnt)
+
+					if data_master != data_prefetch:
+						logger.info(f'ERROR: row mismatch master {data_master} != prefetch {data_prefetch}')
 						exit(1)
 
 			close_cursor(wid, did, conn_master)
