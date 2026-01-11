@@ -20,7 +20,7 @@ import psycopg2.extras
 import random
 import time
 
-USER=os.getlogin()	# used to connect to the instances (no password)
+USER=os.environ.get("USER")	# used to connect to the instances (no password)
 PORT_MASTER=5001	# connection to master instance
 PORT_PREFETCH=5002	# connection to patched instance
 
