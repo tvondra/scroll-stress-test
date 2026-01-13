@@ -37,28 +37,29 @@ PRIMES = [19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79,
 		  433, 439, 443, 449, 457, 461, 463, 467, 479, 487, 491, 499,
 		  503, 509, 521, 523, 541]
 
-def run_sql(wid, did, cur, sql):
+def run_sql(wid, did, cur, sql, log):
 	'''
 	log SQL and execute it
 	'''
 
-	logger = logging.getLogger(f'worker-{wid}-{did}')
+	if log:
+		logger = logging.getLogger(f'worker-{wid}-{did}')
+		logger.info(f'SQL: {sql};')
 
-	logger.info(f'SQL: {sql};')
 	cur.execute(sql)
 
-def create_table(wid, did, conn, fillfactor_index, fillfactor_table):
+def create_table(wid, did, conn, fillfactor_index, fillfactor_table, log):
 	'''
 	create table and index
 	'''
 
 	with conn.cursor() as c:
-		run_sql(wid, did, c, f'drop table if exists t_{wid}')
-		run_sql(wid, did, c, f'create table t_{wid} (a bigint) with (fillfactor = {fillfactor_table})')
-		run_sql(wid, did, c, f'create index on t_{wid} using hash (a) with (fillfactor = {fillfactor_index})')
+		run_sql(wid, did, c, f'drop table if exists t_{wid}', log)
+		run_sql(wid, did, c, f'create table t_{wid} (a bigint) with (fillfactor = {fillfactor_table})', log)
+		run_sql(wid, did, c, f'create index on t_{wid} using hash (a) with (fillfactor = {fillfactor_index})', log)
 		run_sql(wid, did, c, 'commit')
 
-def generate_data(wid, did, conn, rows, seed, fuzz):
+def generate_data(wid, did, conn, rows, seed, fuzz, log = True):
 	'''
 	generate random-looking data (the primes are picked at random, but
 	after that the query itself is deterministic)
@@ -67,10 +68,10 @@ def generate_data(wid, did, conn, rows, seed, fuzz):
 	col = '(i / ' + str(random.choice(PRIMES)) + ')'
 
 	with conn.cursor() as c:
-		run_sql(wid, did, c, f'insert into t_{wid} select {col} from generate_series(1, {rows}) s(i) order by i + mod(i::bigint * {seed}, {fuzz}), md5(i::text)')
-		run_sql(wid, did, c, 'commit')
-		run_sql(wid, did, c, f'vacuum freeze t_{wid}')
-		run_sql(wid, did, c, f'analyze t_{wid}')
+		run_sql(wid, did, c, f'insert into t_{wid} select {col} from generate_series(1, {rows}) s(i) order by i + mod(i::bigint * {seed}, {fuzz}), md5(i::text)', log)
+		run_sql(wid, did, c, 'commit', log)
+		run_sql(wid, did, c, f'vacuum freeze t_{wid}', log)
+		run_sql(wid, did, c, f'analyze t_{wid}', log)
 
 def copy_data(wid, did, conn_src, conn_dst):
 	'''
@@ -104,7 +105,7 @@ def count_rows(wid, did, conn, param):
 		return c.fetchone()['cnt']
 
 
-def declare_cursor(wid, did, conn, param):
+def declare_cursor(wid, did, conn, param, log):
 	'''
 	declare cursor selecting data for a particular value
 	'''
@@ -113,10 +114,10 @@ def declare_cursor(wid, did, conn, param):
 
 	c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-	run_sql(wid, did, c, 'begin')
-	run_sql(wid, did, c, 'set enable_seqscan = off')
-	run_sql(wid, did, c, 'set enable_bitmapscan = off')
-	run_sql(wid, did, c, 'set cursor_tuple_fraction = 1.0')
+	run_sql(wid, did, c, 'begin', log)
+	run_sql(wid, did, c, 'set enable_seqscan = off', log)
+	run_sql(wid, did, c, 'set enable_bitmapscan = off', log)
+	run_sql(wid, did, c, 'set cursor_tuple_fraction = 1.0', log)
 
 	conds = []		# WHERE conditions
 
@@ -126,30 +127,30 @@ def declare_cursor(wid, did, conn, param):
 		logger.info(r['QUERY PLAN'])
 
 	# actually declare the cursor
-	run_sql(wid, did, c, f'declare c_{wid} scroll cursor for select * from t_{wid} where a = {param}')
+	run_sql(wid, did, c, f'declare c_{wid} scroll cursor for select * from t_{wid} where a = {param}', log)
 
 	return c
 
 
-def close_cursor(wid, did, conn):
+def close_cursor(wid, did, conn, log):
 	'''
 	close the declared cursor
 	'''
 
 	with conn.cursor() as c:
-		run_sql(wid, did, c, f'CLOSE c_{wid}')
-		run_sql(wid, did, c, 'rollback')
+		run_sql(wid, did, c, f'CLOSE c_{wid}', log)
+		run_sql(wid, did, c, 'rollback', log)
 
 
-def fetch_data(wid, did, conn, cur, direction, cnt):
+def fetch_data(wid, did, conn, cur, direction, cnt, log):
 	'''
 	fetch a row from the data
 	'''
 
 	# evict data from shared buffers, to force prefetching / look-ahead
-	run_sql(wid, did, cur, 'select pg_buffercache_evict_all()')
+	run_sql(wid, did, cur, 'select pg_buffercache_evict_all()', log)
 
-	run_sql(wid, did, cur, f'fetch {direction} {cnt} from c_{wid}')
+	run_sql(wid, did, cur, f'fetch {direction} {cnt} from c_{wid}', log)
 	return cur.fetchall()
 
 
@@ -177,8 +178,8 @@ def test_worker(wid):
 		logger.info(f'PARAMETERS: did {did} seed {seed} fuzz {fuzz} table fillfactor {fill_table} index fillfactor {fill_index} step {step}')
 
 		logger.info('creating table(s)')
-		create_table(wid, did, conn_master,   fill_table, fill_index)
-		create_table(wid, did, conn_prefetch, fill_table, fill_index)
+		create_table(wid, did, conn_master,   fill_table, fill_index, True)
+		create_table(wid, did, conn_prefetch, fill_table, fill_index, False)
 
 		logger.info('generating data (master)')
 		generate_data(wid, did, conn_master, ROWS, seed, fuzz)
@@ -206,8 +207,8 @@ def test_worker(wid):
 
 			total_cnt = count_rows(wid, did, conn_master, param)
 
-			cur_master = declare_cursor(wid, did, conn_master, param)
-			cur_prefetch = declare_cursor(wid, did, conn_prefetch, param)
+			cur_master = declare_cursor(wid, did, conn_master, param, True)
+			cur_prefetch = declare_cursor(wid, did, conn_prefetch, param, False)
 
 			logger.info(f'total rows {total_cnt}')
 
@@ -224,8 +225,8 @@ def test_worker(wid):
 					cnt = min(step, steps)
 					steps -= cnt
 
-					data_master = fetch_data(wid, did, conn_master, cur_master, 'forward', cnt)
-					data_prefetch = fetch_data(wid, did, conn_prefetch, cur_prefetch, 'forward', cnt)
+					data_master = fetch_data(wid, did, conn_master, cur_master, 'forward', cnt, True)
+					data_prefetch = fetch_data(wid, did, conn_prefetch, cur_prefetch, 'forward', cnt, False)
 
 					if data_master != data_prefetch:
 						logger.info(f'ERROR: row mismatch master {data_master} != prefetch {data_prefetch}')
@@ -239,15 +240,15 @@ def test_worker(wid):
 					cnt = min(step, steps)
 					steps -= cnt
 
-					data_master = fetch_data(wid, did, conn_master, cur_master, 'backward', cnt)
-					data_prefetch = fetch_data(wid, did, conn_prefetch, cur_prefetch, 'backward', cnt)
+					data_master = fetch_data(wid, did, conn_master, cur_master, 'backward', cnt, True)
+					data_prefetch = fetch_data(wid, did, conn_prefetch, cur_prefetch, 'backward', cnt, False)
 
 					if data_master != data_prefetch:
 						logger.info(f'ERROR: row mismatch master {data_master} != prefetch {data_prefetch}')
 						exit(1)
 
-			close_cursor(wid, did, conn_master)
-			close_cursor(wid, did, conn_prefetch)
+			close_cursor(wid, did, conn_master, True)
+			close_cursor(wid, did, conn_prefetch, False)
 
 		logger.info("SUCCESS")
 
