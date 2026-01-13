@@ -105,7 +105,7 @@ def count_rows(wid, did, conn, param):
 		return c.fetchone()['cnt']
 
 
-def declare_cursor(wid, did, conn, param, log):
+def declare_cursor(wid, did, conn, param, max_batches, log):
 	'''
 	declare cursor selecting data for a particular value
 	'''
@@ -118,6 +118,9 @@ def declare_cursor(wid, did, conn, param, log):
 	run_sql(wid, did, c, 'set enable_seqscan = off', log)
 	run_sql(wid, did, c, 'set enable_bitmapscan = off', log)
 	run_sql(wid, did, c, 'set cursor_tuple_fraction = 1.0', log)
+
+	if max_batches:
+		run_sql(wid, did, c, f'set index_scan_max_batches = {max_batches}', log)
 
 	conds = []		# WHERE conditions
 
@@ -171,11 +174,12 @@ def test_worker(wid):
 		fuzz = random.randint(0, int(ROWS / 100))
 		fill_table = random.randint(10, 100)
 		fill_index = random.randint(10, 100)
+		max_batches = random.randint(2, 64)
 
 		# step affects how often we evict data (which may affect prefetching)
 		step = random.randint(1, STEP)
 
-		logger.info(f'PARAMETERS: did {did} seed {seed} fuzz {fuzz} table fillfactor {fill_table} index fillfactor {fill_index} step {step}')
+		logger.info(f'PARAMETERS: did {did} seed {seed} fuzz {fuzz} table fillfactor {fill_table} index fillfactor {fill_index} step {step} max-batches {max_batches}')
 
 		logger.info('creating table(s)')
 		create_table(wid, did, conn_master,   fill_table, fill_index, True)
@@ -207,8 +211,8 @@ def test_worker(wid):
 
 			total_cnt = count_rows(wid, did, conn_master, param)
 
-			cur_master = declare_cursor(wid, did, conn_master, param, True)
-			cur_prefetch = declare_cursor(wid, did, conn_prefetch, param, False)
+			cur_master = declare_cursor(wid, did, conn_master, param, None, True)
+			cur_prefetch = declare_cursor(wid, did, conn_prefetch, param, max_batches, False)
 
 			logger.info(f'total rows {total_cnt}')
 
