@@ -202,8 +202,8 @@ def test_worker(wid):
 		logger.info('copying data (prefetch)')
 		copy_data(wid, did, conn_master, conn_prefetch)
 
-		cur_master = declare_cursor(wid, did, conn_master, columns, modulo, direction, ios, None, True)
-		cur_prefetch = declare_cursor(wid, did, conn_prefetch, columns, modulo, direction, ios, max_batches, False)
+		cur_master = declare_cursor(wid, did, conn_master, columns, modulo, direction, ios, None, False)
+		cur_prefetch = declare_cursor(wid, did, conn_prefetch, columns, modulo, direction, ios, max_batches, True)
 
 		# random forward/backwad steps through the data
 

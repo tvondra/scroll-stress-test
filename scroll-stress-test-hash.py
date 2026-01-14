@@ -211,8 +211,8 @@ def test_worker(wid):
 
 			total_cnt = count_rows(wid, did, conn_master, param)
 
-			cur_master = declare_cursor(wid, did, conn_master, param, None, True)
-			cur_prefetch = declare_cursor(wid, did, conn_prefetch, param, max_batches, False)
+			cur_master = declare_cursor(wid, did, conn_master, param, None, False)
+			cur_prefetch = declare_cursor(wid, did, conn_prefetch, param, max_batches, True)
 
 			logger.info(f'total rows {total_cnt}')
 
