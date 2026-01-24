@@ -57,7 +57,7 @@ def create_table(wid, did, conn, fillfactor_index, fillfactor_table, log):
 		run_sql(wid, did, c, f'drop table if exists t_{wid}', log)
 		run_sql(wid, did, c, f'create table t_{wid} (a bigint) with (fillfactor = {fillfactor_table})', log)
 		run_sql(wid, did, c, f'create index on t_{wid} using hash (a) with (fillfactor = {fillfactor_index})', log)
-		run_sql(wid, did, c, 'commit')
+		run_sql(wid, did, c, 'commit', log)
 
 def generate_data(wid, did, conn, rows, seed, fuzz, log = True):
 	'''
