@@ -97,7 +97,7 @@ def copy_data(wid, did, conn_src, conn_dst):
 	with conn_dst.cursor() as dst:
 		dst.copy_from(f, f't_{wid}')
 
-def declare_cursor(wid, did, conn, columns, modulo, direction, ios, max_batches, log):
+def declare_cursor(wid, did, conn, columns, modulo, direction, ios, log):
 	'''
 	declare cursor selecting data for a particular value
 	'''
@@ -110,9 +110,6 @@ def declare_cursor(wid, did, conn, columns, modulo, direction, ios, max_batches,
 		run_sql(wid, did, c, 'set enable_bitmapscan = off', log)
 		run_sql(wid, did, c, f'set enable_indexonlyscan = {ios}', log)
 		run_sql(wid, did, c, 'set cursor_tuple_fraction = 1.0', log)
-
-		if max_batches:
-			run_sql(wid, did, c, f'set index_scan_max_batches = {max_batches}', log)
 
 	c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
@@ -188,9 +185,8 @@ def test_worker(wid):
 		modulo = random.randint(1, 10)
 		direction = random.choice(['asc', 'desc'])
 		ios = random.choice(['on', 'off'])
-		max_batches = random.randint(2, 64)
 
-		logger.info(f'PARAMETERS: seed {seed} fuzz {fuzz} modulo {modulo} table fillfactor {fill_table} index fillfactor {fill_index} dedup {dedup} dir {direction} ios {ios} max-batches {max_batches}')
+		logger.info(f'PARAMETERS: seed {seed} fuzz {fuzz} modulo {modulo} table fillfactor {fill_table} index fillfactor {fill_index} dedup {dedup} dir {direction} ios {ios}')
 
 		logger.info('creating table(s)')
 		create_table(wid, did, conn_master,   columns, fill_table, fill_index, dedup, True)
@@ -202,8 +198,8 @@ def test_worker(wid):
 		logger.info('copying data (prefetch)')
 		copy_data(wid, did, conn_master, conn_prefetch)
 
-		cur_master = declare_cursor(wid, did, conn_master, columns, modulo, direction, ios, None, False)
-		cur_prefetch = declare_cursor(wid, did, conn_prefetch, columns, modulo, direction, ios, max_batches, True)
+		cur_master = declare_cursor(wid, did, conn_master, columns, modulo, direction, ios, False)
+		cur_prefetch = declare_cursor(wid, did, conn_prefetch, columns, modulo, direction, ios, True)
 
 		# random forward/backwad steps through the data
 
