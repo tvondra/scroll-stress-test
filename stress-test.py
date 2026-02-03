@@ -5,6 +5,7 @@ import logging
 import os
 from tests.btree_random import BTreeRandomTest
 from tests.btree_incremental import BTreeIncrementalTest
+from tests.btree_mergejoin import BTreeMergeJoinTest
 from tests.hash import HashIncrementalTest
 import time
 
@@ -18,6 +19,7 @@ if __name__ == '__main__':
 
 	parser.add_argument('--btree-random', action='store_true')
 	parser.add_argument('--btree-incremental', action='store_true')
+	parser.add_argument('--btree-mergejoin', action='store_true')
 	parser.add_argument('--hash', action='store_true')
 
 	args = parser.parse_args()
@@ -32,6 +34,9 @@ if __name__ == '__main__':
 	if args.btree_incremental:
 		tests.append(BTreeIncrementalTest)
 
+	if args.btree_mergejoin:
+		tests.append(BTreeMergeJoinTest)
+
 	if args.hash:
 		tests.append(HashIncrementalTest)
 
@@ -39,6 +44,7 @@ if __name__ == '__main__':
 	if len(tests) == 0:
 		tests.append(BTreeRandomTest)
 		tests.append(BTreeIncrementalTest)
+		tests.append(BTreeMergeJoinTest)
 		tests.append(HashIncrementalTest)
 
 	idx = 0
