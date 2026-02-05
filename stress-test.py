@@ -9,6 +9,8 @@ from tests.btree_mergejoin import BTreeMergeJoinTest
 from tests.btree_mergejoin_anti import BTreeMergeAntiJoinTest
 from tests.btree_mergejoin_semi import BTreeMergeSemiJoinTest
 from tests.btree_nestloop import BTreeNestLoopTest
+from tests.btree_nestloop_anti import BTreeNestLoopAntiTest
+from tests.btree_nestloop_semi import BTreeNestLoopSemiTest
 from tests.hash import HashIncrementalTest
 import time
 
@@ -26,6 +28,8 @@ if __name__ == '__main__':
 	parser.add_argument('--btree-mergejoin-semi', action='store_true')
 	parser.add_argument('--btree-mergejoin-anti', action='store_true')
 	parser.add_argument('--btree-nestloop', action='store_true')
+	parser.add_argument('--btree-nestloop-semi', action='store_true')
+	parser.add_argument('--btree-nestloop-anti', action='store_true')
 	parser.add_argument('--hash', action='store_true')
 
 	args = parser.parse_args()
@@ -52,6 +56,12 @@ if __name__ == '__main__':
 	if args.btree_nestloop:
 		tests.append(BTreeNestLoopTest)
 
+	if args.btree_nestloop_anti:
+		tests.append(BTreeNestLoopAntiTest)
+
+	if args.btree_nestloop_semi:
+		tests.append(BTreeNestLoopSemiTest)
+
 	if args.hash:
 		tests.append(HashIncrementalTest)
 
@@ -63,6 +73,8 @@ if __name__ == '__main__':
 		tests.append(BTreeMergeSemiJoinTest)
 		tests.append(BTreeMergeAntiJoinTest)
 		tests.append(BTreeNestLoopTest)
+		tests.append(BTreeNestLoopAntiTest)
+		tests.append(BTreeNestLoopSemiTest)
 		tests.append(HashIncrementalTest)
 
 	idx = 0
