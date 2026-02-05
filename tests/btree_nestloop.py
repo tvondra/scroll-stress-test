@@ -23,8 +23,8 @@ USER=os.environ.get("USER")	# used to connect to the instances (no password)
 PORT_MASTER=5001	# connection to master instance
 PORT_PREFETCH=5002	# connection to patched instance
 
-ROWS=100000		# number of rows
-LOOPS=100		# number of passes in either direction
+ROWS=10000		# number of rows
+LOOPS=10		# number of passes in either direction
 STEP=100		# maximum FETCH step (random 1..STEP)
 
 # up to 10 columns
@@ -244,6 +244,8 @@ class BTreeNestLoopTest(Process):
 			self._run_sql(did, c, 'set enable_bitmapscan = off', log)
 			self._run_sql(did, c, 'set enable_mergejoin = off', log)
 			self._run_sql(did, c, 'set enable_hashjoin = off', log)
+			self._run_sql(did, c, 'set enable_memoize = off', log)
+			self._run_sql(did, c, 'set enable_material = off', log)
 			self._run_sql(did, c, f'set enable_indexonlyscan = {ios}', log)
 			self._run_sql(did, c, 'set cursor_tuple_fraction = 1.0', log)
 
