@@ -11,7 +11,7 @@ from tests.btree_mergejoin_semi import BTreeMergeSemiJoinTest
 from tests.btree_nestloop import BTreeNestLoopTest
 from tests.btree_nestloop_anti import BTreeNestLoopAntiTest
 from tests.btree_nestloop_semi import BTreeNestLoopSemiTest
-from tests.hash import HashIncrementalTest
+from tests.hash_incremental import HashIncrementalTest
 import time
 
 
