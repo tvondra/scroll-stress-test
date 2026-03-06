@@ -12,6 +12,7 @@ from tests.btree_nestloop import BTreeNestLoopTest
 from tests.btree_nestloop_anti import BTreeNestLoopAntiTest
 from tests.btree_nestloop_semi import BTreeNestLoopSemiTest
 from tests.hash_incremental import HashIncrementalTest
+from tests.hash_random import HashRandomTest
 import time
 
 
@@ -30,7 +31,8 @@ if __name__ == '__main__':
 	parser.add_argument('--btree-nestloop', action='store_true')
 	parser.add_argument('--btree-nestloop-semi', action='store_true')
 	parser.add_argument('--btree-nestloop-anti', action='store_true')
-	parser.add_argument('--hash', action='store_true')
+	parser.add_argument('--hash-random', action='store_true')
+	parser.add_argument('--hash-incremental', action='store_true')
 
 	args = parser.parse_args()
 
@@ -62,8 +64,12 @@ if __name__ == '__main__':
 	if args.btree_nestloop_semi:
 		tests.append(BTreeNestLoopSemiTest)
 
-	if args.hash:
+	if args.hash_random:
+		tests.append(HashRandomTest)
+
+	if args.hash_incremental:
 		tests.append(HashIncrementalTest)
+
 
 	# nothing selected, run all tests
 	if len(tests) == 0:
@@ -76,6 +82,7 @@ if __name__ == '__main__':
 		tests.append(BTreeNestLoopAntiTest)
 		tests.append(BTreeNestLoopSemiTest)
 		tests.append(HashIncrementalTest)
+		tests.append(HashRandomTest)
 
 	idx = 0
 	workers = []
