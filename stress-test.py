@@ -15,6 +15,7 @@ from tests.hash_incremental import HashIncrementalTest
 from tests.hash_random import HashRandomTest
 from tests.hash_nestloop import HashNestLoopTest
 from tests.hash_nestloop_anti import HashNestLoopAntiTest
+from tests.hash_nestloop_semi import HashNestLoopSemiTest
 import time
 
 
@@ -37,6 +38,7 @@ if __name__ == '__main__':
 	parser.add_argument('--hash-incremental', action='store_true')
 	parser.add_argument('--hash-nestloop', action='store_true')
 	parser.add_argument('--hash-nestloop-anti', action='store_true')
+	parser.add_argument('--hash-nestloop-semi', action='store_true')
 
 	args = parser.parse_args()
 
@@ -80,6 +82,9 @@ if __name__ == '__main__':
 	if args.hash_nestloop_anti:
 		tests.append(HashNestLoopAntiTest)
 
+	if args.hash_nestloop_semi:
+		tests.append(HashNestLoopSemiTest)
+
 
 	# nothing selected, run all tests
 	if len(tests) == 0:
@@ -94,6 +99,7 @@ if __name__ == '__main__':
 		tests.append(HashIncrementalTest)
 		tests.append(HashRandomTest)
 		tests.append(HashNestLoopAntiTest)
+		tests.append(HashNestLoopSemiTest)
 
 	idx = 0
 	workers = []
