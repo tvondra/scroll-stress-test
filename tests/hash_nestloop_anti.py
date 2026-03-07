@@ -171,7 +171,7 @@ class HashNestLoopAntiTest(Process):
 			self._run_sql(did, c, f'drop table if exists t_{self._wid}_2', log)
 			self._run_sql(did, c, f'create table t_{self._wid}_1 (a bigint) with (fillfactor = {fillfactor_table})', log)
 			self._run_sql(did, c, f'create table t_{self._wid}_2 (a bigint) with (fillfactor = {fillfactor_table})', log)
-			self._run_sql(did, c, f'create index on t_{self._wid}_1 using hash (a) with (fillfactor = {fillfactor_index})', log)
+			self._run_sql(did, c, f'create index on t_{self._wid}_1 (a) with (fillfactor = {fillfactor_index})', log)
 			self._run_sql(did, c, f'create index on t_{self._wid}_2 using hash (a) with (fillfactor = {fillfactor_index})', log)
 			self._run_sql(did, c, 'commit', log)
 
@@ -242,11 +242,11 @@ class HashNestLoopAntiTest(Process):
 
 		c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-		c.execute(f'explain select * from t_{self._wid}_1 where not exists (select 1 from t_{self._wid}_2 where (t_{self._wid}_1.a = t_{self._wid}_2.a))')
+		c.execute(f'explain select * from t_{self._wid}_1 where not exists (select 1 from t_{self._wid}_2 where (t_{self._wid}_1.a = t_{self._wid}_2.a)) order by t_{self._wid}_1.a')
 		for r in c.fetchall():
 			logger.info(r['QUERY PLAN'])
 
-		self._run_sql(did, c, f'declare c_{self._wid} scroll cursor for select * from t_{self._wid}_1 where not exists (select 1 from t_{self._wid}_2 where (t_{self._wid}_1.a = t_{self._wid}_2.a))', log)
+		self._run_sql(did, c, f'declare c_{self._wid} scroll cursor for select * from t_{self._wid}_1 where not exists (select 1 from t_{self._wid}_2 where (t_{self._wid}_1.a = t_{self._wid}_2.a)) order by t_{self._wid}_1.a', log)
 
 		return c
 
