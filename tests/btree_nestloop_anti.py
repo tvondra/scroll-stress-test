@@ -248,6 +248,8 @@ class BTreeNestLoopAntiTest(Process):
 			self._run_sql(did, c, 'set enable_hashjoin = off', log)
 			self._run_sql(did, c, 'set enable_memoize = off', log)
 			self._run_sql(did, c, 'set enable_material = off', log)
+			self._run_sql(did, c, 'set enable_hashagg = off', log)
+			self._run_sql(did, c, 'set enable_sort = off', log)
 			self._run_sql(did, c, f'set enable_indexonlyscan = {ios}', log)
 			self._run_sql(did, c, 'set cursor_tuple_fraction = 1.0', log)
 
@@ -262,12 +264,12 @@ class BTreeNestLoopAntiTest(Process):
 
 		tmp = ' and '.join(conds)
 
-		c.execute(f'explain select * from t_{self._wid}_1 where not exists (select 1 from t_{self._wid}_2 where ({tmp}))')
+		c.execute(f'explain select * from t_{self._wid}_1 where not exists (select 1 from t_{self._wid}_2 where ({tmp})) order by t_{self._wid}_1.a')
 
 		for r in c.fetchall():
 			logger.info(r['QUERY PLAN'])
 
-		self._run_sql(did, c, f'declare c_{self._wid} scroll cursor for select * from t_{self._wid}_1 where not exists (select 1 from t_{self._wid}_2 where ({tmp}))', log)
+		self._run_sql(did, c, f'declare c_{self._wid} scroll cursor for select * from t_{self._wid}_1 where not exists (select 1 from t_{self._wid}_2 where ({tmp})) order by t_{self._wid}_1.a', log)
 
 		return c
 
