@@ -11,6 +11,8 @@ from tests.btree_mergejoin_semi import BTreeMergeSemiJoinTest
 from tests.btree_nestloop import BTreeNestLoopTest
 from tests.btree_nestloop_anti import BTreeNestLoopAntiTest
 from tests.btree_nestloop_semi import BTreeNestLoopSemiTest
+from tests.btree_nestloop_limit import BTreeNestLoopLimitTest
+from tests.btree_nestloop_lateral import BTreeNestLoopLateralTest
 from tests.hash_incremental import HashIncrementalTest
 from tests.hash_random import HashRandomTest
 from tests.hash_nestloop import HashNestLoopTest
@@ -34,6 +36,8 @@ if __name__ == '__main__':
 	parser.add_argument('--btree-nestloop', action='store_true')
 	parser.add_argument('--btree-nestloop-semi', action='store_true')
 	parser.add_argument('--btree-nestloop-anti', action='store_true')
+	parser.add_argument('--btree-nestloop-limit', action='store_true')
+	parser.add_argument('--btree-nestloop-lateral', action='store_true')
 	parser.add_argument('--hash-random', action='store_true')
 	parser.add_argument('--hash-incremental', action='store_true')
 	parser.add_argument('--hash-nestloop', action='store_true')
@@ -70,6 +74,12 @@ if __name__ == '__main__':
 	if args.btree_nestloop_semi:
 		tests.append(BTreeNestLoopSemiTest)
 
+	if args.btree_nestloop_limit:
+		tests.append(BTreeNestLoopLimitTest)
+
+	if args.btree_nestloop_lateral:
+		tests.append(BTreeNestLoopLateralTest)
+
 	if args.hash_random:
 		tests.append(HashRandomTest)
 
@@ -100,6 +110,8 @@ if __name__ == '__main__':
 		tests.append(HashRandomTest)
 		tests.append(HashNestLoopAntiTest)
 		tests.append(HashNestLoopSemiTest)
+		tests.append(BTreeNestLoopLimitTest)
+		tests.append(BTreeNestLoopLateralTest)
 
 	idx = 0
 	workers = []
