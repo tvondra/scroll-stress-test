@@ -107,6 +107,7 @@ if __name__ == '__main__':
 		tests.append(BTreeNestLoopAntiTest)
 		tests.append(BTreeNestLoopSemiTest)
 		tests.append(HashIncrementalTest)
+		tests.append(HashNestLoopTest)
 		tests.append(HashRandomTest)
 		tests.append(HashNestLoopAntiTest)
 		tests.append(HashNestLoopSemiTest)
