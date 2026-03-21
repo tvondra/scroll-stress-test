@@ -220,7 +220,7 @@ class BTreeMergeJoinParallelTest(Process):
 
 		tmp = ', '.join(cols)
 
-		c.execute(f'explain select * from t_{self._wid}_1 join t_{self._wid}_2 using ({tmp}) order by {tmp}')
+		c.execute(f'explain select count(*), bit_xor(crc32(md5((x.*)::text)::bytea)::bit(32)) from (select * from t_{self._wid}_1 join t_{self._wid}_2 using ({tmp}) order by {tmp}) x')
 
 		for r in c.fetchall():
 			logger.info(r['QUERY PLAN'])
@@ -228,7 +228,7 @@ class BTreeMergeJoinParallelTest(Process):
 		# evict data from shared buffers, to force prefetching / look-ahead
 		self._run_sql(did, c, 'select pg_buffercache_evict_all()', log)
 
-		self._run_sql(did, c, f'select * from t_{self._wid}_1 join t_{self._wid}_2 using ({tmp}) order by {tmp}', log)
+		self._run_sql(did, c, f'select count(*), bit_xor(crc32(md5((x.*)::text)::bytea)::bit(32)) from (select * from t_{self._wid}_1 join t_{self._wid}_2 using ({tmp}) order by {tmp}) x', log)
 
 		return c
 
