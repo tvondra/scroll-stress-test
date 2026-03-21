@@ -5,10 +5,13 @@ import logging
 import os
 from tests.btree_random import BTreeRandomTest
 from tests.btree_incremental import BTreeIncrementalTest
+from tests.btree_parallel import BTreeParallelTest
 from tests.btree_mergejoin import BTreeMergeJoinTest
+from tests.btree_mergejoin_parallel import BTreeMergeJoinParallelTest
 from tests.btree_mergejoin_anti import BTreeMergeAntiJoinTest
 from tests.btree_mergejoin_semi import BTreeMergeSemiJoinTest
 from tests.btree_nestloop import BTreeNestLoopTest
+from tests.btree_nestloop_parallel import BTreeNestLoopParallelTest
 from tests.btree_nestloop_anti import BTreeNestLoopAntiTest
 from tests.btree_nestloop_semi import BTreeNestLoopSemiTest
 from tests.btree_nestloop_limit import BTreeNestLoopLimitTest
@@ -31,10 +34,13 @@ if __name__ == '__main__':
 	parser.add_argument('--workers', type=int, default=0, action='store')
 	parser.add_argument('--btree-random', action='store_true')
 	parser.add_argument('--btree-incremental', action='store_true')
+	parser.add_argument('--btree-parallel', action='store_true')
 	parser.add_argument('--btree-mergejoin', action='store_true')
+	parser.add_argument('--btree-mergejoin-parallel', action='store_true')
 	parser.add_argument('--btree-mergejoin-semi', action='store_true')
 	parser.add_argument('--btree-mergejoin-anti', action='store_true')
 	parser.add_argument('--btree-nestloop', action='store_true')
+	parser.add_argument('--btree-nestloop-parallel', action='store_true')
 	parser.add_argument('--btree-nestloop-semi', action='store_true')
 	parser.add_argument('--btree-nestloop-anti', action='store_true')
 	parser.add_argument('--btree-nestloop-limit', action='store_true')
@@ -57,8 +63,14 @@ if __name__ == '__main__':
 	if args.btree_incremental:
 		tests.append(BTreeIncrementalTest)
 
+	if args.btree_parallel:
+		tests.append(BTreeParallelTest)
+
 	if args.btree_mergejoin:
 		tests.append(BTreeMergeJoinTest)
+
+	if args.btree_mergejoin_parallel:
+		tests.append(BTreeMergeJoinParallelTest)
 
 	if args.btree_mergejoin_semi:
 		tests.append(BTreeMergeSemiJoinTest)
@@ -68,6 +80,9 @@ if __name__ == '__main__':
 
 	if args.btree_nestloop:
 		tests.append(BTreeNestLoopTest)
+
+	if args.btree_nestloop_parallel:
+		tests.append(BTreeNestLoopParallelTest)
 
 	if args.btree_nestloop_anti:
 		tests.append(BTreeNestLoopAntiTest)
@@ -101,10 +116,13 @@ if __name__ == '__main__':
 	if len(tests) == 0:
 		tests.append(BTreeRandomTest)
 		tests.append(BTreeIncrementalTest)
+		tests.append(BTreeParallelTest)
 		tests.append(BTreeMergeJoinTest)
+		tests.append(BTreeMergeJoinParallelTest)
 		tests.append(BTreeMergeSemiJoinTest)
 		tests.append(BTreeMergeAntiJoinTest)
 		tests.append(BTreeNestLoopTest)
+		tests.append(BTreeNestLoopParallelTest)
 		tests.append(BTreeNestLoopAntiTest)
 		tests.append(BTreeNestLoopSemiTest)
 		tests.append(HashIncrementalTest)
