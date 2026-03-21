@@ -28,6 +28,7 @@ if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser(prog='stress-test')
 
+	parser.add_argument('--workers', type=int, default=0, action='store')
 	parser.add_argument('--btree-random', action='store_true')
 	parser.add_argument('--btree-incremental', action='store_true')
 	parser.add_argument('--btree-mergejoin', action='store_true')
@@ -114,6 +115,10 @@ if __name__ == '__main__':
 		tests.append(BTreeNestLoopLimitTest)
 		tests.append(BTreeNestLoopLateralTest)
 
+	num_workers = args.workers
+	if num_workers == 0:
+		num_workers = os.cpu_count()
+
 	idx = 0
 	workers = []
 	while True:
@@ -122,7 +127,7 @@ if __name__ == '__main__':
 			idx += 1
 			workers.append(t(idx))
 
-		if len(workers) >= os.cpu_count():
+		if len(workers) >= num_workers:
 			break
 
 	[w.start() for w in workers]
