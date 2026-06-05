@@ -61,11 +61,12 @@ class GistIncrementalTest(Process):
 			fuzz = random.randint(0, int(ROWS / 100))
 			fill_table = random.randint(10, 100)
 			fill_index = random.randint(10, 100)
+			ios = random.choice(['on', 'off'])
 
 			# step affects how often we evict data (which may affect prefetching)
 			step = random.randint(1, STEP)
 
-			logger.info(f'PARAMETERS: did {did} seed {seed} fuzz {fuzz} table fillfactor {fill_table} index fillfactor {fill_index} step {step}')
+			logger.info(f'PARAMETERS: did {did} seed {seed} fuzz {fuzz} table fillfactor {fill_table} index fillfactor {fill_index} step {step} ios {ios}')
 
 			logger.info('creating table(s)')
 			self._create_table(did, conn_master,   fill_table, fill_index, True)
@@ -97,8 +98,8 @@ class GistIncrementalTest(Process):
 
 				total_cnt = self._count_rows(did, conn_master, param)
 
-				cur_master = self._declare_cursor(did, conn_master, param, False)
-				cur_prefetch = self._declare_cursor(did, conn_prefetch, param, True)
+				cur_master = self._declare_cursor(did, conn_master, param, ios, False)
+				cur_prefetch = self._declare_cursor(did, conn_prefetch, param, ios, True)
 
 				logger.info(f'total rows {total_cnt}')
 
@@ -162,7 +163,7 @@ class GistIncrementalTest(Process):
 
 		with conn.cursor() as c:
 			self._run_sql(did, c, f'drop table if exists t_{self._wid}', log)
-			self._run_sql(did, c, f'create table t_{self._wid} (a bigint) with (fillfactor = {fillfactor_table})', log)
+			self._run_sql(did, c, f'create table t_{self._wid} (a int) with (fillfactor = {fillfactor_table})', log)
 			self._run_sql(did, c, f'create index on t_{self._wid} using gist (a) with (fillfactor = {fillfactor_index})', log)
 			self._run_sql(did, c, 'commit', log)
 
@@ -176,7 +177,7 @@ class GistIncrementalTest(Process):
 		col = '(i / ' + str(random.choice(PRIMES)) + ')'
 
 		with conn.cursor() as c:
-			self._run_sql(did, c, f'insert into t_{self._wid} select {col} from generate_series(1, {rows}) s(i) order by i + mod(i::bigint * {seed}, {fuzz}), md5(i::text)', log)
+			self._run_sql(did, c, f'insert into t_{self._wid} select {col} from generate_series(1, {rows}) s(i) order by i + mod(i::int * {seed}, {fuzz}), md5(i::text)', log)
 			self._run_sql(did, c, 'commit', log)
 			self._run_sql(did, c, f'vacuum freeze t_{self._wid}', log)
 			self._run_sql(did, c, f'analyze t_{self._wid}', log)
@@ -216,7 +217,7 @@ class GistIncrementalTest(Process):
 			return c.fetchone()['cnt']
 
 
-	def _declare_cursor(self, did, conn, param, log):
+	def _declare_cursor(self, did, conn, param, ios,, log):
 		'''
 		declare cursor selecting data for a particular value
 		'''
@@ -228,6 +229,7 @@ class GistIncrementalTest(Process):
 		self._run_sql(did, c, 'begin', log)
 		self._run_sql(did, c, 'set enable_seqscan = off', log)
 		self._run_sql(did, c, 'set enable_bitmapscan = off', log)
+		self._run_sql(did, c, f'set enable_indexonlyscan = {ios}', log)
 		self._run_sql(did, c, 'set cursor_tuple_fraction = 1.0', log)
 
 		conds = []		# WHERE conditions

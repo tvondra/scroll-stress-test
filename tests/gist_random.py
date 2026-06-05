@@ -62,8 +62,9 @@ class GistRandomTest(Process):
 			fill_table = random.randint(10, 100)
 			fill_index = random.randint(10, 100)
 			modulo = random.randint(1, 10)
+			ios = random.choice(['on', 'off'])
 
-			logger.info(f'PARAMETERS: seed {seed} fuzz {fuzz} modulo {modulo} table fillfactor {fill_table} index fillfactor {fill_index}')
+			logger.info(f'PARAMETERS: seed {seed} fuzz {fuzz} modulo {modulo} table fillfactor {fill_table} index fillfactor {fill_index} ios {ios}')
 
 			logger.info('creating table(s)')
 			self._create_table(did, conn_master,   fill_table, fill_index, True)
@@ -93,8 +94,8 @@ class GistRandomTest(Process):
 
 				param = values[loop]
 
-				cur_master = self._declare_cursor(did, conn_master, modulo, param, False)
-				cur_prefetch = self._declare_cursor(did, conn_prefetch, modulo, param, True)
+				cur_master = self._declare_cursor(did, conn_master, modulo, param, ios, False)
+				cur_prefetch = self._declare_cursor(did, conn_prefetch, modulo, param, ios, True)
 
 				# random forward/backwad steps through the data
 
@@ -185,7 +186,7 @@ class GistRandomTest(Process):
 
 		with conn.cursor() as c:
 			self._run_sql(did, c, f'drop table if exists t_{self._wid}', log)
-			self._run_sql(did, c, f'create table t_{self._wid} (a bigint) with (fillfactor = {fillfactor_table})', log)
+			self._run_sql(did, c, f'create table t_{self._wid} (a int) with (fillfactor = {fillfactor_table})', log)
 			self._run_sql(did, c, f'create index on t_{self._wid} using gist (a) with (fillfactor = {fillfactor_index})', log)
 			self._run_sql(did, c, 'commit', log)
 
@@ -199,7 +200,7 @@ class GistRandomTest(Process):
 		col = '(i / ' + str(random.choice(PRIMES)) + ')'
 
 		with conn.cursor() as c:
-			self._run_sql(did, c, f'insert into t_{self._wid} select {col} from generate_series(1, {rows}) s(i) order by i + mod(i::bigint * {seed}, {fuzz}), md5(i::text)', log)
+			self._run_sql(did, c, f'insert into t_{self._wid} select {col} from generate_series(1, {rows}) s(i) order by i + mod(i::int * {seed}, {fuzz}), md5(i::text)', log)
 			self._run_sql(did, c, 'commit', log)
 			self._run_sql(did, c, f'vacuum freeze t_{self._wid}', log)
 			self._run_sql(did, c, f'analyze t_{self._wid}', log)
@@ -230,7 +231,7 @@ class GistRandomTest(Process):
 		return [v[0] for v in cur.fetchall()]
 
 
-	def _declare_cursor(self, did, conn, modulo, param, log):
+	def _declare_cursor(self, did, conn, modulo, param, ios, log):
 		'''
 		declare cursor selecting data for a particular value
 		'''
@@ -241,6 +242,7 @@ class GistRandomTest(Process):
 			self._run_sql(did, c, 'begin', log)
 			self._run_sql(did, c, 'set enable_seqscan = off', log)
 			self._run_sql(did, c, 'set enable_bitmapscan = off', log)
+			self._run_sql(did, c, f'set enable_indexonlyscan = {ios}', log)
 			self._run_sql(did, c, 'set cursor_tuple_fraction = 1.0', log)
 
 		c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
