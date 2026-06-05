@@ -217,7 +217,7 @@ class GistIncrementalTest(Process):
 			return c.fetchone()['cnt']
 
 
-	def _declare_cursor(self, did, conn, param, ios,, log):
+	def _declare_cursor(self, did, conn, param, ios, log):
 		'''
 		declare cursor selecting data for a particular value
 		'''
