@@ -22,6 +22,8 @@ from tests.btree_nestloop_limit import BTreeNestLoopLimitTest
 from tests.btree_nestloop_lateral import BTreeNestLoopLateralTest
 from tests.gist_random import GistRandomTest
 from tests.gist_incremental import GistIncrementalTest
+from tests.gist_ordered_random import GistOrderedRandomTest
+from tests.gist_ordered_incremental import GistOrderedIncrementalTest
 from tests.hash_incremental import HashIncrementalTest
 from tests.hash_random import HashRandomTest
 from tests.hash_nestloop import HashNestLoopTest
@@ -50,6 +52,8 @@ if __name__ == '__main__':
 	parser.add_argument('--btree-nestloop-lateral', action='store_true')
 	parser.add_argument('--gist-random', action='store_true')
 	parser.add_argument('--gist-incremental', action='store_true')
+	parser.add_argument('--gist-ordered-random', action='store_true')
+	parser.add_argument('--gist-ordered-incremental', action='store_true')
 	parser.add_argument('--hash-random', action='store_true')
 	parser.add_argument('--hash-incremental', action='store_true')
 	parser.add_argument('--hash-nestloop', action='store_true')
@@ -107,6 +111,12 @@ if __name__ == '__main__':
 	if args.gist_incremental:
 		tests.append(GistIncrementalTest)
 
+	if args.gist_ordered_random:
+		tests.append(GistOrderedRandomTest)
+
+	if args.gist_ordered_incremental:
+		tests.append(GistOrderedIncrementalTest)
+
 	if args.hash_random:
 		tests.append(HashRandomTest)
 
@@ -138,6 +148,8 @@ if __name__ == '__main__':
 		tests.append(BTreeNestLoopSemiTest)
 		tests.append(GistRandomTest)
 		tests.append(GistIncrementalTest)
+		tests.append(GistOrderedRandomTest)
+		tests.append(GistOrderedIncrementalTest)
 		tests.append(HashIncrementalTest)
 		tests.append(HashNestLoopTest)
 		tests.append(HashRandomTest)
