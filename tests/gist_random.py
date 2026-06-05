@@ -200,7 +200,7 @@ class GistRandomTest(Process):
 		col = '(i / ' + str(random.choice(PRIMES)) + ')'
 
 		with conn.cursor() as c:
-			self._run_sql(did, c, f'insert into t_{self._wid} select {col} from generate_series(1, {rows}) s(i) order by i + mod(i::int * {seed}, {fuzz}), md5(i::text)', log)
+			self._run_sql(did, c, f'insert into t_{self._wid} select {col} from generate_series(1, {rows}) s(i) order by i + mod(i::bigint * {seed}, {fuzz}), md5(i::text)', log)
 			self._run_sql(did, c, 'commit', log)
 			self._run_sql(did, c, f'vacuum freeze t_{self._wid}', log)
 			self._run_sql(did, c, f'analyze t_{self._wid}', log)
