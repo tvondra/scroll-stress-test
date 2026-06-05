@@ -2,6 +2,10 @@
 
 import argparse
 import logging
+
+FORMAT = '%(asctime)s\t%(levelname)s\t%(module)s\t%(name)s\t%(message)s'
+logging.basicConfig(level=logging.INFO, format=FORMAT)
+
 import os
 from tests.btree_random import BTreeRandomTest
 from tests.btree_incremental import BTreeIncrementalTest
@@ -25,9 +29,6 @@ import time
 
 
 if __name__ == '__main__':
-
-	FORMAT = '%(asctime)s\t%(levelname)s\t%(module)s\t%(name)s\t%(message)s'
-	logging.basicConfig(level=logging.INFO, format=FORMAT)
 
 	parser = argparse.ArgumentParser(prog='stress-test')
 
