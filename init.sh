@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 killall -9 postgres
-rm -Rf data*
+rm -Rf data* pg-master.log pg-patched.log
 
 ~/builds/master/bin/pg_ctl -D data-master init
 ~/builds/patched/bin/pg_ctl -D data-patched init
@@ -12,8 +12,11 @@ echo 'port = 5002' >> data-patched/postgresql.conf
 echo 'restart_after_crash = on' >> data-master/postgresql.conf
 echo 'restart_after_crash = on' >> data-patched/postgresql.conf
 
-echo 'io_workers = 32' >> data-master/postgresql.conf
-echo 'io_workers = 32' >> data-patched/postgresql.conf
+echo 'io_min_workers = 32' >> data-master/postgresql.conf
+echo 'io_max_workers = 32' >> data-master/postgresql.conf
+
+echo 'io_min_workers = 32' >> data-patched/postgresql.conf
+echo 'io_max_workers = 32' >> data-patched/postgresql.conf
 
 ~/builds/master/bin/pg_ctl -D data-master -l pg-master.log start
 ~/builds/patched/bin/pg_ctl -D data-patched -l pg-patched.log start
@@ -22,4 +25,7 @@ echo 'io_workers = 32' >> data-patched/postgresql.conf
 ~/builds/patched/bin/createdb -p 5002 test
 
 ~/builds/master/bin/psql -p 5001 test -c "create extension pg_buffercache"
+~/builds/master/bin/psql -p 5001 test -c "create extension btree_gist"
+
 ~/builds/patched/bin/psql -p 5002 test -c "create extension pg_buffercache"
+~/builds/patched/bin/psql -p 5002 test -c "create extension btree_gist"
