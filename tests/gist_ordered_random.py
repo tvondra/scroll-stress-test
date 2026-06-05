@@ -196,7 +196,7 @@ class GistOrderedRandomTest(Process):
 		after that the query itself is deterministic)
 		'''
 
-		col = '(i / ' + str(random.choice(PRIMES)) + ')'
+		col = '3 * (i / ' + str(random.choice(PRIMES)) + ')'
 
 		with conn.cursor() as c:
 			self._run_sql(did, c, f'insert into t_{self._wid} select {col} from generate_series(1, {rows}) s(i) order by i + mod(i::bigint * {seed}, {fuzz}), md5(i::text)', log)
@@ -244,6 +244,9 @@ class GistOrderedRandomTest(Process):
 			self._run_sql(did, c, 'set cursor_tuple_fraction = 1.0', log)
 
 		c = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+		# offset by 1, to make ordering deterministic
+		param = (param - 1)
 
 		# print explain of the constructed query
 		c.execute(f'explain select * from t_{self._wid} order by a <-> {param}')
