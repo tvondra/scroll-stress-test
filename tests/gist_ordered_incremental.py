@@ -232,7 +232,7 @@ class GistOrderedIncrementalTest(Process):
 		conds = []		# WHERE conditions
 
 		# print explain of the constructed query
-		c.execute(f'explain select * from t_{self._wid} where a = {param}')
+		c.execute(f'explain select * from t_{self._wid} order by a <-> {param}')
 		for r in c.fetchall():
 			logger.info(r['QUERY PLAN'])
 
