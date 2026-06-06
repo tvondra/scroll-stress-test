@@ -94,7 +94,8 @@ class GistOrderedIncrementalTest(Process):
 
 				param = values[loop]
 
-				total_cnt = self._count_rows(did, conn_master, param)
+				# scan through the whole dataset
+				total_cnt = ROWS
 
 				cur_master = self._declare_cursor(did, conn_master, param, False)
 				cur_prefetch = self._declare_cursor(did, conn_prefetch, param, True)
@@ -204,15 +205,6 @@ class GistOrderedIncrementalTest(Process):
 		'''
 		cur.execute(f'select distinct a from t_{self._wid}')
 		return [v[0] for v in cur.fetchall()]
-
-
-	def _count_rows(self, did, conn, param):
-		'''
-		count all rows returned by the query
-		'''
-		with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as c:
-			c.execute(f'select count(*) as cnt from t_{self._wid} where a = {param}')
-			return c.fetchone()['cnt']
 
 
 	def _declare_cursor(self, did, conn, param, log):
