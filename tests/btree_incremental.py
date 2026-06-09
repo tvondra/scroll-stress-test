@@ -75,7 +75,7 @@ class BTreeIncrementalTest(Process):
 
 			# optionally delete some rows
 			if delete:
-				self._delete_random_rows(did, int((ROWS / 10) / LOOPS))
+				self._delete_random_rows(did, int(ROWS / 100))
 
 			cur_master = self._declare_cursor(did, conn_master, columns, direction, ios, False)
 			cur_prefetch = self._declare_cursor(did, conn_prefetch, columns, direction, ios, True)
