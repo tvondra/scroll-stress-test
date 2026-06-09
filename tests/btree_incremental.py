@@ -59,8 +59,9 @@ class BTreeIncrementalTest(Process):
 			columns = random.randint(1,10)
 			direction = random.choice(['asc', 'desc'])
 			ios = random.choice(['on', 'off'])
+			delete = random.choice([True, False])
 
-			logger.info(f'PARAMETERS: seed {seed} fuzz {fuzz} table fillfactor {fill_table} index fillfactor {fill_index} dedup {dedup} dir {direction} ios {ios}')
+			logger.info(f'PARAMETERS: seed {seed} fuzz {fuzz} table fillfactor {fill_table} index fillfactor {fill_index} dedup {dedup} dir {direction} ios {ios} delete {delete}')
 
 			logger.info('creating table(s)')
 			self._create_table(did, conn_master,   columns, fill_table, fill_index, dedup, True)
@@ -71,6 +72,10 @@ class BTreeIncrementalTest(Process):
 
 			logger.info('copying data (prefetch)')
 			self._copy_data(did, conn_master, conn_prefetch)
+
+			# optionally delete some rows
+			if delete:
+				self._delete_random_rows(did, int((ROWS / 10) / LOOPS))
 
 			cur_master = self._declare_cursor(did, conn_master, columns, direction, ios, False)
 			cur_prefetch = self._declare_cursor(did, conn_prefetch, columns, direction, ios, True)
@@ -242,3 +247,19 @@ class BTreeIncrementalTest(Process):
 
 		self._run_sql(did, cur, f'fetch {direction} {count} from c_{self._wid}', log)
 		return cur.fetchall()
+
+
+	def _delete_random_rows(self, did, num_rows):
+
+		conn = psycopg2.connect(f'host=localhost port={PORT_MASTER} user={USER} dbname=test')
+		with conn.cursor() as cur:
+			self._run_sql(did, cur, f'delete from t_{self._wid} where ctid in (select ctid from t_{self._wid} order by md5(ctid::text), ctid limit {num_rows})', True)
+			cur.execute('commit')
+		conn.close()
+
+		conn = psycopg2.connect(f'host=localhost port={PORT_PREFETCH} user={USER} dbname=test')
+		with conn.cursor() as cur:
+			self._run_sql(did, cur, f'delete from t_{self._wid} where ctid in (select ctid from t_{self._wid} order by md5(ctid::text), ctid limit {num_rows})', False)
+			#cur.execute(f'delete from t_{self._wid} where ctid in (select ctid from t_{self._wid} order by md5(ctid::text), ctid limit {num_rows})')
+			cur.execute('commit')
+		conn.close()
