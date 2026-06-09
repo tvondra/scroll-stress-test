@@ -63,8 +63,9 @@ class GistRandomTest(Process):
 			fill_index = random.randint(10, 100)
 			modulo = random.randint(1, 10)
 			ios = random.choice(['on', 'off'])
+			delete = random.choice([True, False])
 
-			logger.info(f'PARAMETERS: seed {seed} fuzz {fuzz} modulo {modulo} table fillfactor {fill_table} index fillfactor {fill_index} ios {ios}')
+			logger.info(f'PARAMETERS: seed {seed} fuzz {fuzz} modulo {modulo} table fillfactor {fill_table} index fillfactor {fill_index} ios {ios} delete {delete}')
 
 			logger.info('creating table(s)')
 			self._create_table(did, conn_master,   fill_table, fill_index, True)
@@ -93,6 +94,10 @@ class GistRandomTest(Process):
 					break
 
 				param = values[loop]
+
+				# optionally delete some rows
+				if delete:
+					self._delete_random_rows(did, int((ROWS / 10) / LOOPS))
 
 				cur_master = self._declare_cursor(did, conn_master, modulo, param, ios, False)
 				cur_prefetch = self._declare_cursor(did, conn_prefetch, modulo, param, ios, True)
@@ -278,3 +283,19 @@ class GistRandomTest(Process):
 
 		self._run_sql(did, cur, f'fetch {direction} {count} from c_{self._wid}', log)
 		return cur.fetchall()
+
+
+	def _delete_random_rows(self, did, num_rows):
+
+		conn = psycopg2.connect(f'host=localhost port={PORT_MASTER} user={USER} dbname=test')
+		with conn.cursor() as cur:
+			self._run_sql(did, cur, f'delete from t_{self._wid} where ctid in (select ctid from t_{self._wid} order by md5(ctid::text), ctid limit {num_rows})', True)
+			cur.execute('commit')
+		conn.close()
+
+		conn = psycopg2.connect(f'host=localhost port={PORT_PREFETCH} user={USER} dbname=test')
+		with conn.cursor() as cur:
+			self._run_sql(did, cur, f'delete from t_{self._wid} where ctid in (select ctid from t_{self._wid} order by md5(ctid::text), ctid limit {num_rows})', False)
+			#cur.execute(f'delete from t_{self._wid} where ctid in (select ctid from t_{self._wid} order by md5(ctid::text), ctid limit {num_rows})')
+			cur.execute('commit')
+		conn.close()

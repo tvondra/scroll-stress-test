@@ -62,11 +62,12 @@ class GistIncrementalTest(Process):
 			fill_table = random.randint(10, 100)
 			fill_index = random.randint(10, 100)
 			ios = random.choice(['on', 'off'])
+			delete = random.choice([True, False])
 
 			# step affects how often we evict data (which may affect prefetching)
 			step = random.randint(1, STEP)
 
-			logger.info(f'PARAMETERS: did {did} seed {seed} fuzz {fuzz} table fillfactor {fill_table} index fillfactor {fill_index} step {step} ios {ios}')
+			logger.info(f'PARAMETERS: did {did} seed {seed} fuzz {fuzz} table fillfactor {fill_table} index fillfactor {fill_index} step {step} ios {ios} delete {delete}')
 
 			logger.info('creating table(s)')
 			self._create_table(did, conn_master,   fill_table, fill_index, True)
@@ -96,6 +97,11 @@ class GistIncrementalTest(Process):
 
 				param = values[loop]
 
+				# optionally delete some rows
+				if delete:
+					self._delete_random_rows(did, int((ROWS / 10) / LOOPS))
+
+				# scan through the whole dataset
 				total_cnt = self._count_rows(did, conn_master, param)
 
 				cur_master = self._declare_cursor(did, conn_master, param, ios, False)
@@ -265,3 +271,19 @@ class GistIncrementalTest(Process):
 
 		self._run_sql(did, cur, f'fetch {direction} {cnt} from c_{self._wid}', log)
 		return cur.fetchall()
+
+
+	def _delete_random_rows(self, did, num_rows):
+
+		conn = psycopg2.connect(f'host=localhost port={PORT_MASTER} user={USER} dbname=test')
+		with conn.cursor() as cur:
+			self._run_sql(did, cur, f'delete from t_{self._wid} where ctid in (select ctid from t_{self._wid} order by md5(ctid::text), ctid limit {num_rows})', True)
+			cur.execute('commit')
+		conn.close()
+
+		conn = psycopg2.connect(f'host=localhost port={PORT_PREFETCH} user={USER} dbname=test')
+		with conn.cursor() as cur:
+			self._run_sql(did, cur, f'delete from t_{self._wid} where ctid in (select ctid from t_{self._wid} order by md5(ctid::text), ctid limit {num_rows})', False)
+			#cur.execute(f'delete from t_{self._wid} where ctid in (select ctid from t_{self._wid} order by md5(ctid::text), ctid limit {num_rows})')
+			cur.execute('commit')
+		conn.close()
