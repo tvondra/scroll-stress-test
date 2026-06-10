@@ -31,6 +31,9 @@ from tests.hash_random import HashRandomTest
 from tests.hash_nestloop import HashNestLoopTest
 from tests.hash_nestloop_anti import HashNestLoopAntiTest
 from tests.hash_nestloop_semi import HashNestLoopSemiTest
+
+from utils.vacuum import VacuumWorker
+
 import time
 
 
@@ -184,6 +187,8 @@ if __name__ == '__main__':
 
 		if len(workers) >= num_workers:
 			break
+
+	workers.append(VacuumWorker())
 
 	[w.start() for w in workers]
 	[w.join() for w in workers]
